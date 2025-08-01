@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Breadcrumb from '../../components/Breadcrumb';
 import BookingModal from '../../components/BookingModal';
+import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 
 export default function TransportDetail() {
   const router = useRouter();
@@ -14,6 +15,22 @@ export default function TransportDetail() {
   const [error, setError] = useState('');
   const [showBooking, setShowBooking] = useState(false);
   const [reload, setReload] = useState(false);
+  const [bookingError, setBookingError] = useState('');
+  const [driverLocation, setDriverLocation] = useState(null);
+  const [trackingStatus, setTrackingStatus] = useState('waiting'); // waiting, enroute, arrived
+
+  // Function tính khoảng cách giữa 2 điểm (Haversine formula)
+  const calculateDistance = (point1, point2) => {
+    const R = 6371; // Bán kính Trái Đất (km)
+    const dLat = (point2.lat - point1.lat) * Math.PI / 180;
+    const dLon = (point2.lng - point1.lng) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(point1.lat * Math.PI / 180) * Math.cos(point2.lat * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
 
   useEffect(() => {
     if (id) fetchService();
@@ -34,6 +51,10 @@ export default function TransportDetail() {
       setLoading(false);
     }
   };
+
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+  });
 
   return (
     <div className="min-h-screen bg-secondary-50 py-8 px-4">
@@ -80,26 +101,68 @@ export default function TransportDetail() {
             </div>
             <div className="mt-8">
               <h2 className="text-lg font-semibold mb-2">Chọn thời gian đặt:</h2>
-              {/* {slots.length === 0 ? (
-                <div className="text-gray-500">Không còn slot trống.</div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {slots.map(slot => (
-                    <button key={slot} className="badge badge-primary">{new Date(slot).toLocaleString('vi-VN')}</button>
-                  ))}
-                </div>
-              )} */}
-              {slots.length === 0 ? (
-                <div className="text-gray-500">Không còn slot trống.</div>
-              ) : (
-                <div className="text-gray-500">Còn slot trống.</div>
-              )}
               <button className="btn-primary mt-4" onClick={() => setShowBooking(true)}>Đặt dịch vụ</button>
+              {bookingError && <div className="text-red-500 mt-2">{bookingError}</div>}
             </div>
+            {/* Bản đồ Google Maps với tracking tài xế */}
+            {service?.location && (
+              <div className="mt-8">
+                <h2 className="text-lg font-semibold mb-2">Vị trí và theo dõi tài xế:</h2>
+                {isLoaded ? (
+                  <GoogleMap
+                    mapContainerStyle={{ width: '100%', height: '400px' }}
+                    center={{ lat: service.location.lat || 21.028511, lng: service.location.lng || 105.804817 }}
+                    zoom={15}
+                  >
+                    {/* Marker vị trí đích */}
+                    <Marker 
+                      position={{ lat: service.location.lat || 21.028511, lng: service.location.lng || 105.804817 }}
+                      icon={{
+                        url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                      }}
+                    />
+                    {/* Marker vị trí tài xế (nếu có) */}
+                    {driverLocation && (
+                      <Marker 
+                        position={driverLocation}
+                        icon={{
+                          url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                        }}
+                      />
+                    )}
+                  </GoogleMap>
+                ) : (
+                  <div>Đang tải bản đồ...</div>
+                )}
+              </div>
+            )}
+            {/* Tiến trình di chuyển nâng cao */}
+            <div className="mt-8">
+              <h2 className="text-lg font-semibold mb-2">Tiến trình di chuyển:</h2>
+              <div className="w-full bg-gray-200 rounded-full h-4">
+                <div 
+                  className={`h-4 rounded-full transition-all duration-500 ${
+                    trackingStatus === 'waiting' ? 'bg-yellow-500 w-1/3' :
+                    trackingStatus === 'enroute' ? 'bg-blue-500 w-2/3' :
+                    'bg-green-500 w-full'
+                  }`}
+                ></div>
+              </div>
+              <div className="flex justify-between text-xs mt-1">
+                <span className={trackingStatus === 'waiting' ? 'font-bold' : ''}>Chờ tài xế</span>
+                <span className={trackingStatus === 'enroute' ? 'font-bold' : ''}>Đang di chuyển</span>
+                <span className={trackingStatus === 'arrived' ? 'font-bold' : ''}>Đã đến</span>
+              </div>
+              {driverLocation && (
+                <div className="mt-2 text-sm text-gray-600">
+                  Tài xế cách đích: {Math.round(calculateDistance(driverLocation, {lat: service.location.lat || 21.028511, lng: service.location.lng || 105.804817}))}km
+                </div>
+              )}
+            </div>
+            {showBooking && (
+              <BookingModal service={service} slots={slots} onClose={() => setShowBooking(false)} onBooked={() => { setShowBooking(false); setReload(r => !r); }} setBookingError={setBookingError} />
+            )}
           </div>
-        )}
-        {showBooking && (
-          <BookingModal service={service} slots={slots} onClose={() => setShowBooking(false)} onBooked={() => { setShowBooking(false); setReload(r => !r); }} />
         )}
       </div>
     </div>

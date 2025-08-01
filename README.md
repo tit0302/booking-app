@@ -254,6 +254,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👨‍💻 Tác giả
 
-**EasyBook Team** - 2024
+**EasyBook Team** - 2025
 
 Made with ❤️ for the Vietnamese community 

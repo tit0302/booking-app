@@ -12,7 +12,6 @@ import {
   HiGlobe,
   HiHeart
 } from 'react-icons/hi';
-import Layout from '../components/Layout';
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,9 +81,13 @@ export default function Home() {
         />
       </Head>
 
-      <Layout>
+      <>
         {/* Hero Section */}
-        <section className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50">
+        <section className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50"
+          style={{
+            minHeight: window.innerWidth >= 1024 ? 'calc(100vh - 5rem)' : '100vh'
+          }}
+        >
           <div className="absolute inset-0 bg-black/5"></div>
           
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -136,9 +139,9 @@ export default function Home() {
           </div>
 
           {/* Scroll Indicator */}
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
-            <div className="w-6 h-10 border-2 border-gray-400 rounded-full flex justify-center">
-              <div className="w-1 h-3 bg-gray-400 rounded-full mt-2 animate-pulse"></div>
+          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
+            <div className="w-6 h-10 border-[1.5px] border-gray-400/70 rounded-full flex justify-center items-start">
+              <div className="w-1 h-3 bg-gray-400/70 rounded-full mt-[6px] animate-pulse"></div>
             </div>
           </div>
         </section>
@@ -340,7 +343,7 @@ export default function Home() {
             </div>
           </div>
         </section>
-      </Layout>
+      </>
     </>
   );
 } 

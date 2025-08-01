@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Breadcrumb from '../../components/Breadcrumb';
 import BookingModal from '../../components/BookingModal';
+import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 
 export default function StayDetail() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function StayDetail() {
   const [error, setError] = useState('');
   const [showBooking, setShowBooking] = useState(false);
   const [reload, setReload] = useState(false);
+  const [bookingError, setBookingError] = useState('');
 
   useEffect(() => {
     if (id) fetchService();
@@ -34,6 +36,10 @@ export default function StayDetail() {
       setLoading(false);
     }
   };
+
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+  });
 
   return (
     <div className="min-h-screen bg-secondary-50 py-8 px-4">
@@ -80,26 +86,30 @@ export default function StayDetail() {
             </div>
             <div className="mt-8">
               <h2 className="text-lg font-semibold mb-2">Chọn thời gian đặt:</h2>
-              {/* {slots.length === 0 ? (
-                <div className="text-gray-500">Không còn slot trống.</div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {slots.map(slot => (
-                    <button key={slot} className="badge badge-primary">{new Date(slot).toLocaleString('vi-VN')}</button>
-                  ))}
-                </div>
-              )} */}
-              {slots.length === 0 ? (
-                <div className="text-gray-500">Không còn slot trống.</div>
-              ) : (
-                <div className="text-gray-500">Còn slot trống.</div>
-              )}
               <button className="btn-primary mt-4" onClick={() => setShowBooking(true)}>Đặt dịch vụ</button>
+              {bookingError && <div className="text-red-500 mt-2">{bookingError}</div>}
             </div>
+            {/* Bản đồ Google Maps */}
+            {service?.location && (
+              <div className="mt-8">
+                <h2 className="text-lg font-semibold mb-2">Vị trí trên bản đồ:</h2>
+                {isLoaded ? (
+                  <GoogleMap
+                    mapContainerStyle={{ width: '100%', height: '300px' }}
+                    center={{ lat: service.location.lat || 21.028511, lng: service.location.lng || 105.804817 }}
+                    zoom={15}
+                  >
+                    <Marker position={{ lat: service.location.lat || 21.028511, lng: service.location.lng || 105.804817 }} />
+                  </GoogleMap>
+                ) : (
+                  <div>Đang tải bản đồ...</div>
+                )}
+              </div>
+            )}
+            {showBooking && (
+              <BookingModal service={service} slots={slots} onClose={() => setShowBooking(false)} onBooked={() => { setShowBooking(false); setReload(r => !r); }} setBookingError={setBookingError} />
+            )}
           </div>
-        )}
-        {showBooking && (
-          <BookingModal service={service} slots={slots} onClose={() => setShowBooking(false)} onBooked={() => { setShowBooking(false); setReload(r => !r); }} />
         )}
       </div>
     </div>

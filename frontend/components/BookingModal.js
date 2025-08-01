@@ -3,7 +3,7 @@ import axios from 'axios';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
-export default function BookingModal({ service, slots, onClose, onBooked }) {
+export default function BookingModal({ service, slots, onClose, onBooked, setBookingError }) {
   // Chuyển slot sang Date object
   const slotDates = useMemo(() => slots.map(s => new Date(s)), [slots]);
   // Lấy danh sách ngày có slot
@@ -39,36 +39,75 @@ export default function BookingModal({ service, slots, onClose, onBooked }) {
   };
 
   const handleBooking = async () => {
-    if (!selectedSlot || !name || !phone) {
-      setError('Vui lòng nhập đầy đủ thông tin.');
+    // Validation chi tiết
+    if (!selectedSlot) {
+      setError('Vui lòng chọn khung giờ.');
       return;
     }
+    if (!name.trim()) {
+      setError('Vui lòng nhập tên khách.');
+      return;
+    }
+    if (!phone.trim()) {
+      setError('Vui lòng nhập số điện thoại.');
+      return;
+    }
+    if (!/^[0-9+\-\s()]+$/.test(phone.trim())) {
+      setError('Số điện thoại không hợp lệ.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/booking`, {
+      if (!token) {
+        setError('Vui lòng đăng nhập để đặt dịch vụ.');
+        return;
+      }
+
+      // Format dữ liệu theo đúng schema backend
+      const bookingData = {
         serviceId: service._id,
         time: selectedSlot,
-        name,
-        phone,
-        paymentMethod: payment
-      }, {
+        paymentMethod: payment,
+        amount: service.price || 0, // Lấy giá từ service
+        customerInfo: {
+          name: name.trim(),
+          phone: phone.trim(),
+          email: 'customer@example.com', // Tạm thời, có thể thêm field email sau
+          note: '' // Có thể thêm field note sau
+        }
+      };
+
+      console.log('Sending booking data:', bookingData);
+
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/booking`, bookingData, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (payment === 'vnpay' || payment === 'momo' || payment === 'paypal') {
-        // Gọi API tạo link thanh toán
-        const payRes = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/payment/${payment}`, {
-          bookingId: res.data.data.booking._id
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        window.location.href = payRes.data.data.paymentUrl;
+
+      if (res.data.success) {
+        if (payment === 'vnpay' || payment === 'momo' || payment === 'paypal') {
+          // Gọi API tạo link thanh toán
+          const payRes = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/payment/${payment}`, {
+            bookingId: res.data.data.booking._id
+          }, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          window.location.href = payRes.data.data.paymentUrl;
+        } else {
+          onBooked && onBooked();
+          onClose();
+        }
       } else {
-        onBooked && onBooked();
+        setError(res.data.message || 'Đặt lịch thất bại.');
+        setBookingError && setBookingError(res.data.message || 'Đặt lịch thất bại.');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Lỗi đặt lịch');
+      const errorMsg = err.response?.data?.message || 'Lỗi đặt lịch. Vui lòng thử lại.';
+      setError(errorMsg);
+      setBookingError && setBookingError(errorMsg);
+      console.error('Booking error:', err);
     } finally {
       setLoading(false);
     }
